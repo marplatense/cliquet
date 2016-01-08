@@ -485,7 +485,8 @@ def initialize_cliquet(*args, **kwargs):
     initialize(*args, **kwargs)
 
 
-def initialize(config, version=None, project_name='', default_settings=None):
+def initialize(config, version=None, project_name='', default_settings=None,
+               default_plugins=None):
     """Initialize Cliquet with the given configuration, version and project
     name.
 
@@ -507,6 +508,10 @@ def initialize(config, version=None, project_name='', default_settings=None):
     settings['project_name'] = project_name
     if not project_name:
         warnings.warn('No value specified for `project_name`')
+
+    if default_plugins:
+        settings['includes'] = '%s %s' % (' '.join(default_plugins),
+                                          settings.get('includes', ''))
 
     cliquet_defaults = cliquet.DEFAULT_SETTINGS.copy()
 
