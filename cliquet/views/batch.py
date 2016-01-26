@@ -2,6 +2,7 @@ import colander
 import six
 
 from pyramid.security import NO_PERMISSION_REQUIRED
+from pyramid.view import render_view_to_response
 from pyramid import httpexceptions
 
 from cliquet import errors
@@ -104,6 +105,8 @@ def post_batch(request):
             else:
                 # JSONify raw Pyramid errors.
                 resp = errors.http_error(e)
+        except Exception as e:
+            resp = render_view_to_response(e, subrequest)
 
         sublogger.bind(code=resp.status_code)
         sublogger.info('subrequest.summary')
