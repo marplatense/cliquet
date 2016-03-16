@@ -39,12 +39,24 @@ if installed_with_pypy:
         'psycopg2cffi>2.7.0',
         'zope.sqlalchemy',
     ]
+    SQLALCHEMY_REQUIRES = [
+        'SQLAlchemy',
+        'psycopg2cffi>2.7.0',
+        'pyramid_sqlalchemy,'
+        'zope.sqlalchemy',
+    ]
 else:
     # ujson is not pypy compliant, as it uses the CPython C API
     REQUIREMENTS.append('ujson >= 1.35')
     POSTGRESQL_REQUIRES = [
         'SQLAlchemy',
         'psycopg2>2.5',
+        'zope.sqlalchemy',
+    ]
+    SQLALCHEMY_REQUIRES = [
+        'SQLAlchemy',
+        'psycopg2>2.5',
+        'pyramid_sqlalchemy,'
         'zope.sqlalchemy',
     ]
 
