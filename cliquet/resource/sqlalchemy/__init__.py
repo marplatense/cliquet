@@ -2,7 +2,7 @@ import datetime
 
 from pyramid_sqlalchemy import BaseObject
 from sqlalchemy import Column
-from sqlalchemy import String, DateTime, Boolean
+from sqlalchemy import String, DateTime, Boolean, Integer
 from sqlalchemy.ext.declarative import declarative_base
 
 from cliquet.resource.model import Model
@@ -12,11 +12,17 @@ import cliquet
 
 class SQLABaseObject(object):
 
-    id = Column(String(), primary_key=True)
-    parent_id = Column(String(), nullable=False, index=True)
-    last_modified = Column(DateTime, nullable=False)
-    deleted = Column(Boolean, default=False, index=True)
+    _track_timestamp = True
 
+    id = Column(Integer(), primary_key=True)
+    parent_id = Column(String(), nullable=False, index=True)
+    last_modified = Column(DateTime(), nullable=False)
+    deleted = Column(Boolean(), default=False, index=True)
+
+    @property
+    def is_timestamp_trackeable(self):
+        """True if this object will be used to track the last time the collection it belongs to has been accessed"""
+        return self._track_timestamp
 
     def deserialize(self):
         # TODO: to be replaced via mapping deserializer
