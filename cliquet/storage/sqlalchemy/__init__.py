@@ -1,10 +1,8 @@
-from collections import defaultdict
 import datetime
 
-from pyramid.settings import asbool
 from pyramid_sqlalchemy import BaseObject, Session, metadata
 from sqlalchemy import Column
-from sqlalchemy import DateTime, String, Integer, Boolean, Date
+from sqlalchemy import DateTime, String, Integer
 from sqlalchemy import select, func, and_, event
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import load_only
@@ -328,6 +326,7 @@ class Storage(StorageBase):
 
 class SQLAFilter(object):
 
+    iterables = (COMPARISON.IN, COMPARISON.EXCLUDE)
     sqla_enum_conversion = {COMPARISON.EQ: '=',
                             COMPARISON.IN: 'in_',
                             COMPARISON.EXCLUDE: 'notin_'}
@@ -336,18 +335,12 @@ class SQLAFilter(object):
         self.attribute = getattr(collection, criteria.field)
         self.value = criteria.value
         self.operator = criteria.operator
-        self.sqla_operator = self._translate_comparison_operator()
+        self.sqla_operator = self.sqla_enum_conversion.setdefault(criteria.operator, criteria.operator.value)
 
     def __call__(self):
         if self.operator in (COMPARISON.EXCLUDE, COMPARISON.IN):
             return getattr(self.attribute.comparator, self.sqla_operator)(self.value)
         return self.attribute.op(self.sqla_operator)(self.value)
-
-    def _translate_comparison_operator(self):
-        try:
-            return self.sqla_enum_conversion[self.operator]
-        except KeyError:
-            return self.operator.value
 
 
 def load_from_config(config):
