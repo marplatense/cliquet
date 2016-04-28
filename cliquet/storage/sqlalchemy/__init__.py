@@ -1,24 +1,25 @@
+from collections import defaultdict
 import datetime
-import re
 
+from pyramid.settings import asbool
 from pyramid_sqlalchemy import BaseObject, Session, metadata
 from sqlalchemy import Column
-from sqlalchemy import DateTime, String, Integer
+from sqlalchemy import DateTime, String, Integer, Boolean, Date
 from sqlalchemy import select, func, and_, event
-from sqlalchemy.sql import label
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import load_only
+from sqlalchemy.sql import label
+
 import transaction
 
 from cliquet import logger
-from cliquet.utils import classname
+from cliquet.utils import classname, COMPARISON
 from cliquet.storage import StorageBase
 from cliquet.storage import DEFAULT_ID_FIELD, DEFAULT_MODIFIED_FIELD, DEFAULT_DELETED_FIELD
-from cliquet.storage.exceptions import RecordNotFoundError, UnicityError, BackendError
+from cliquet.storage.exceptions import RecordNotFoundError
 from cliquet.storage.sqlalchemy.client import create_from_config
 from cliquet.storage.sqlalchemy.generators import IntegerId
-
-
-regexp_integrity_error_fields = r'\((.*?)\)'
+from cliquet.storage.sqlalchemy.exceptions import process_unicity_error
 
 
 class Deleted(BaseObject):
@@ -86,7 +87,7 @@ class Storage(StorageBase):
                                                                                    tb.c.collection_id == collection_id))
         last_modified,  = Session.execute(qry).fetchone()
         if last_modified is None:
-            last_modified =  datetime.datetime.utcnow()
+            last_modified = datetime.datetime.utcnow()
             with transaction.manager:
                 Session.add(Timestamps(parent_id=parent_id, collection_id=collection_id,
                                        last_modified=last_modified))
@@ -122,14 +123,9 @@ class Storage(StorageBase):
             Session.flush()
         except IntegrityError as e:
             logger.exception('Object %s for collection %s raised %s', record, self.collection, e)
-            if e.orig.pgcode == '23505':
-                field, record = re.findall(regexp_integrity_error_fields, e.orig.pgerror)
-                raise UnicityError(field=field, record=record)
-            else:
-                raise BackendError(original=self.collection, message='Validation error while creating object. '
-                                                                     'Please report this to support')
+            process_unicity_error(e, Session, self.collection, record)
         # TODO: store new timestamps date
-        return obj.deserialize()
+        return obj.deserialize(self.attributes)
 
     def get(self, collection_id, parent_id, object_id,
             id_field=DEFAULT_ID_FIELD,
@@ -152,7 +148,7 @@ class Storage(StorageBase):
         # TODO: verify permissions
         if obj is None or obj.deleted:
             raise RecordNotFoundError()
-        return obj.deserialize()
+        return obj.deserialize(self.attributes)
 
     def update(self, collection_id, parent_id, object_id, object,
                unique_fields=None, id_field=DEFAULT_ID_FIELD,
@@ -188,7 +184,7 @@ class Storage(StorageBase):
         else:
             for k, v in object.items():
                 setattr(obj, k, v)
-            obj = obj.deserialize()
+            obj = obj.deserialize(self.attributes)
         return obj
 
     def delete(self, collection_id, parent_id, object_id,
@@ -227,7 +223,7 @@ class Storage(StorageBase):
         Session.add(Deleted(id=object_id, parent_id=parent_id,
                             collection_id=collection_id,
                             last_modified=getattr(obj, modified_field)))
-        return obj.deserialize()
+        return obj.deserialize(self.attributes)
 
     def delete_all(self, collection_id, parent_id, filters=None,
                    with_deleted=True, id_field=DEFAULT_ID_FIELD,
@@ -246,18 +242,18 @@ class Storage(StorageBase):
         :returns: the list of deleted objects, with minimal set of attributes.
         :rtype: list of dict
         """
-        with transaction.manager:
-            tb = self.collection.__table__
-            qry = select([tb.c.id]).where(and_(tb.c.parent_id == parent_id, getattr(tb.c, deleted_field) == False))
-            if filters:
-                qry.append_whereclause(filters)
-            rows = [{"id": every.id, "parent_id": parent_id, "collection_id": collection_id,
-                     modified_field: datetime.datetime.utcnow()} for every in Session.execute(qry).fetchall()]
-            Session.bulk_update_mappings(self.collection,
-                                         [{"id": every['id'], deleted_field: True,
-                                           modified_field: every[modified_field]} for every in rows])
-            if with_deleted:
-                Session.bulk_insert_mappings(Deleted, rows)
+        qry = Session.query(self.collection).options(load_only('id'))\
+                     .filter(and_(self.collection.parent_id == parent_id,
+                                  getattr(self.collection, deleted_field) == False))
+        for every in filters:
+            qry = qry.filter(SQLAFilter(self.collection, every)())
+        rows = [{"id": every.id, "parent_id": parent_id, "collection_id": collection_id,
+                 modified_field: datetime.datetime.utcnow()} for every in qry.all()]
+        Session.bulk_update_mappings(self.collection,
+                                     [{"id": every['id'], deleted_field: True,
+                                       modified_field: every[modified_field]} for every in rows])
+        if with_deleted:
+            Session.bulk_insert_mappings(Deleted, rows)
         return rows
 
     def purge_deleted(self, collection_id, parent_id, before=None,
@@ -322,10 +318,36 @@ class Storage(StorageBase):
         qry = Session.query(self.collection).filter(self.collection.parent_id == parent_id)
         total_records = qry.count()
         if not include_deleted:
-            qry =  qry.filter(getattr(self.collection, deleted_field) == False)
+            qry = qry.filter(getattr(self.collection, deleted_field) == False)
+        for every in filters:
+            qry = qry.filter(SQLAFilter(self.collection, every)())
         if limit:
             qry = qry.limit(limit=limit)
-        return ([every.deserialize() for every in qry.all()], total_records)
+        return [every.deserialize(self.attributes) for every in qry.all()], total_records
+
+
+class SQLAFilter(object):
+
+    sqla_enum_conversion = {COMPARISON.EQ: '=',
+                            COMPARISON.IN: 'in_',
+                            COMPARISON.EXCLUDE: 'notin_'}
+
+    def __init__(self, collection, criteria):
+        self.attribute = getattr(collection, criteria.field)
+        self.value = criteria.value
+        self.operator = criteria.operator
+        self.sqla_operator = self._translate_comparison_operator()
+
+    def __call__(self):
+        if self.operator in (COMPARISON.EXCLUDE, COMPARISON.IN):
+            return getattr(self.attribute.comparator, self.sqla_operator)(self.value)
+        return self.attribute.op(self.sqla_operator)(self.value)
+
+    def _translate_comparison_operator(self):
+        try:
+            return self.sqla_enum_conversion[self.operator]
+        except KeyError:
+            return self.operator.value
 
 
 def load_from_config(config):
