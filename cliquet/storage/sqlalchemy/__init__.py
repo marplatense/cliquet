@@ -6,7 +6,7 @@ from sqlalchemy import DateTime, String, Integer
 from sqlalchemy import select, func, and_, event
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import load_only
-from sqlalchemy.sql import label
+from sqlalchemy.sql import label, and_
 
 import transaction
 
@@ -313,16 +313,30 @@ class Storage(StorageBase):
             matching objects in the collection (deleted ones excluded).
         :rtype: tuple (list, integer)
         """
-        qry = Session.query(self.collection).filter(self.collection.parent_id == parent_id)
-        total_records = qry.count()
+        self.qry = Session.query(self.collection)  #.filter(self.collection.parent_id == parent_id)
+        # TODO: verify permissions
+        total_records = self.qry.count()
         if not include_deleted:
-            qry = qry.filter(getattr(self.collection, deleted_field) == False)
-        for every in filters:
-            qry = qry.filter(SQLAFilter(self.collection, every)())
+            self.qry = self.qry.filter(getattr(self.collection, deleted_field) == False)
+        self._apply_filters(filters)
+        self._apply_orderby(sorting)
         if limit:
-            qry = qry.limit(limit=limit)
-        return [every.deserialize(self.attributes) for every in qry.all()], total_records
+            self.qry = self.qry.limit(limit=limit)
+        return [every.deserialize(self.attributes) for every in self.qry.all()], total_records
 
+    def _apply_filters(self, filters):
+        filter_clause = []
+        for every in filters:
+            filter_clause.append(SQLAFilter(self.collection, every)())
+        if filter_clause:
+            self.qry = self.qry.filter(*filter_clause)
+
+    def _apply_orderby(self, sorting):
+        order_by_clause = []
+        for every in sorting:
+            order_by_clause.append(SQLSort(self.collection, every)())
+        if order_by_clause:
+            self.qry = self.qry.order_by(*order_by_clause)
 
 class SQLAFilter(object):
 
@@ -341,6 +355,18 @@ class SQLAFilter(object):
         if self.operator in (COMPARISON.EXCLUDE, COMPARISON.IN):
             return getattr(self.attribute.comparator, self.sqla_operator)(self.value)
         return self.attribute.op(self.sqla_operator)(self.value)
+
+
+class SQLSort(object):
+
+    sql_sort_enum = {-1: 'desc', 1: 'asc'}
+
+    def __init__(self, collection, sorting):
+        self.attribute = getattr(collection, sorting.field)
+        self.ordering = self.sql_sort_enum[sorting.direction]
+
+    def __call__(self):
+        return getattr(self.attribute, self.ordering)()
 
 
 def load_from_config(config):
