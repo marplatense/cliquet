@@ -44,6 +44,7 @@ if installed_with_pypy:
         'psycopg2cffi>2.7.0',
         'pyramid_sqlalchemy,'
         'zope.sqlalchemy',
+        'colanderalchemy',
     ]
 else:
     # ujson is not pypy compliant, as it uses the CPython C API
@@ -58,6 +59,7 @@ else:
         'psycopg2>2.5',
         'pyramid_sqlalchemy,'
         'zope.sqlalchemy',
+        'colanderalchemy',
     ]
 
 DEPENDENCY_LINKS = [
