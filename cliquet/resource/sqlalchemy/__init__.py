@@ -1,6 +1,7 @@
 import datetime
 
-from colanderalchemy import SQLAlchemySchemaNode
+from cliquet import logger
+from colanderalchemy import SQLAlchemySchemaNode, setup_schema
 from pyramid_sqlalchemy import BaseObject
 from sqlalchemy import Column
 from sqlalchemy import String, DateTime, Boolean, Integer
@@ -27,10 +28,21 @@ class SQLABaseObject(object):
     def last_modified_timestamp(self):
         return self.last_modified.replace(tzinfo=datetime.timezone.utc).timestamp()
 
-    def deserialize(self, attributes):
-        values = dict([(key, value) for (key, value) in self.__dict__.items() if key in attributes])
-        values['last_modified'] = self.last_modified_timestamp
-        return values
+    def deserialize(self):
+        try:
+            dict_ = self.__colanderalchemy__.dictify(self)
+            dict_['last_modified'] = self.last_modified_timestamp
+            return dict_
+        except AttributeError:
+            logger.exception('Schema for collection %s has not been set: error is %s', self.collection, e)
+            raise Exception('Schema not set for model')
+
+    def serialize(self, dict_, context=None):
+        try:
+            return self.__colanderalchemy__.objectify(dict_, context)
+        except AttributeError:
+            logger.exception('Schema for collection %s has not been set: error is %s', self.collection, e)
+            raise Exception('Schema not set for model')
 
 
 class SQLAUserResource(UserResource):
@@ -38,8 +50,8 @@ class SQLAUserResource(UserResource):
     def __init__(self, request, context=None):
         super(SQLAUserResource, self).__init__(request, context)
         self.model.storage.collection = self.appmodel
-        self.mapping = SQLAlchemySchemaNode(self.model.storage.collection)
-        self.model.storage.attributes = [every.name for every in self.mapping.children]
+        setup_schema(None, self.model.storage.collection)
+        self.mapping = self.model.storage.collection.__colanderalchemy__
 
 
 Base = declarative_base(cls=(BaseObject, SQLABaseObject))

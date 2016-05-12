@@ -113,7 +113,7 @@ class Storage(StorageBase):
         :returns: the newly created object.
         :rtype: dict
         """
-        obj = self.collection(**record)
+        obj = self.collection.serialize(record)
         obj.parent_id = parent_id
         setattr(obj, modified_field, datetime.datetime.utcnow())
         try:
@@ -123,7 +123,7 @@ class Storage(StorageBase):
             logger.exception('Object %s for collection %s raised %s', record, self.collection, e)
             process_unicity_error(e, Session, self.collection, record)
         # TODO: store new timestamps date
-        return obj.deserialize(self.attributes)
+        return self.collection.deserialize(obj)
 
     def get(self, collection_id, parent_id, object_id,
             id_field=DEFAULT_ID_FIELD,
@@ -146,7 +146,7 @@ class Storage(StorageBase):
         # TODO: verify permissions
         if obj is None or obj.deleted:
             raise RecordNotFoundError()
-        return obj.deserialize(self.attributes)
+        return obj.deserialize()
 
     def update(self, collection_id, parent_id, object_id, object,
                unique_fields=None, id_field=DEFAULT_ID_FIELD,
@@ -182,8 +182,7 @@ class Storage(StorageBase):
         else:
             for k, v in object.items():
                 setattr(obj, k, v)
-            obj = obj.deserialize(self.attributes)
-        return obj
+        return obj.deserialize()
 
     def delete(self, collection_id, parent_id, object_id,
                with_deleted=True, id_field=DEFAULT_ID_FIELD,
@@ -221,7 +220,7 @@ class Storage(StorageBase):
         Session.add(Deleted(id=object_id, parent_id=parent_id,
                             collection_id=collection_id,
                             last_modified=getattr(obj, modified_field)))
-        return obj.deserialize(self.attributes)
+        return obj.deserialize()
 
     def delete_all(self, collection_id, parent_id, filters=None,
                    with_deleted=True, id_field=DEFAULT_ID_FIELD,
@@ -322,7 +321,7 @@ class Storage(StorageBase):
         self._apply_orderby(sorting)
         if limit:
             self.qry = self.qry.limit(limit=limit)
-        return [every.deserialize(self.attributes) for every in self.qry.all()], total_records
+        return [every.deserialize() for every in self.qry.all()], total_records
 
     def _apply_filters(self, filters):
         filter_clause = []
