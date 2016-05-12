@@ -1,7 +1,7 @@
 import datetime
 
 from cliquet import logger
-from colanderalchemy import SQLAlchemySchemaNode, setup_schema
+from colanderalchemy import setup_schema
 from pyramid_sqlalchemy import BaseObject
 from sqlalchemy import Column
 from sqlalchemy import String, DateTime, Boolean, Integer
@@ -34,14 +34,14 @@ class SQLABaseObject(object):
             dict_['last_modified'] = self.last_modified_timestamp
             return dict_
         except AttributeError:
-            logger.exception('Schema for collection %s has not been set: error is %s', self.collection, e)
+            logger.exception('Schema for collection %s has not been set', self.collection)
             raise Exception('Schema not set for model')
 
     def serialize(self, dict_, context=None):
         try:
             return self.__colanderalchemy__.objectify(dict_, context)
         except AttributeError:
-            logger.exception('Schema for collection %s has not been set: error is %s', self.collection, e)
+            logger.exception('Schema for collection %s has not been set', self.collection)
             raise Exception('Schema not set for model')
 
 
