@@ -756,6 +756,9 @@ class UserResource(object):
         if_match = decode_header(if_match) if if_match else None
 
         if record and if_none_match and decode_header(if_none_match) == '*':
+            if record.get(self.model.deleted_field, False):
+                # Tombstones should not prevent creation.
+                return
             modified_since = -1  # Always raise.
         elif if_match:
             try:
@@ -877,6 +880,12 @@ class UserResource(object):
         for param, paramvalue in queryparams.items():
             param = param.strip()
 
+            error_details = {
+                'name': param,
+                'location': 'querystring',
+                'description': 'Invalid value for %s' % param
+            }
+
             # Ignore specific fields
             if param.startswith('_') and param not in ('_since',
                                                        '_to',
@@ -888,11 +897,6 @@ class UserResource(object):
                 value = native_value(paramvalue.strip('"'))
 
                 if not isinstance(value, six.integer_types):
-                    error_details = {
-                        'name': param,
-                        'location': 'querystring',
-                        'description': 'Invalid value for %s' % param
-                    }
                     raise_invalid(self.request, **error_details)
 
                 if param == '_since':
@@ -918,15 +922,24 @@ class UserResource(object):
                 operator, field = COMPARISON.EQ, param
 
             if not self.is_known_field(field):
-                error_details = {
-                    'location': 'querystring',
-                    'description': "Unknown filter field '{0}'".format(param)
-                }
+                error_msg = "Unknown filter field '{0}'".format(param)
+                error_details['description'] = error_msg
                 raise_invalid(self.request, **error_details)
 
             value = native_value(paramvalue)
             if operator in (COMPARISON.IN, COMPARISON.EXCLUDE):
                 value = set([native_value(v) for v in paramvalue.split(',')])
+
+                all_integers = all([isinstance(v, six.integer_types)
+                                    for v in value])
+                all_strings = all([isinstance(v, six.text_type)
+                                   for v in value])
+                has_invalid_value = (
+                    (field == self.model.id_field and not all_strings) or
+                    (field == self.model.modified_field and not all_integers)
+                )
+                if has_invalid_value:
+                    raise_invalid(self.request, **error_details)
 
             filters.append(Filter(field, value, operator))
 

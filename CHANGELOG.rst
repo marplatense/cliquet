@@ -10,6 +10,52 @@ This document describes changes between each past release.
 - Nothing changed yet.
 
 
+3.1.4 (2016-05-10)
+------------------
+
+**Bug fixes**
+
+- Redirects version prefix to hello page when trailing_slash_redirect is enabled. (#700)
+- Fix crash when setting empty permission list with PostgreSQL permission backend (fixes Kinto/kinto#575)
+- Fix crash when type of values in querystring for exclude/include is wrong (fixes Kinto/kinto#587)
+- Fix crash when providing duplicated principals in permissions with PostgreSQL permission backend (fixes #702)
+
+
+3.1.3 (2016-04-29)
+------------------
+
+**Bug fixes**
+
+- Fix migration of triggers in PostgreSQL storage backend when upgrading from <3.0.0.
+  Running the ``migrate`` command will basically re-create them (fixes Kinto/kinto#559)
+
+**Documentation**
+
+- Fix some typos in documentation (#696)
+- Update links to readthedocs (#697)
+
+
+3.1.2 (2016-04-19)
+------------------
+
+**Bug fixes**
+
+- Fix safe creation (``If-None-Match: *``) if a record used to exist with the
+  same id (Kinto/kinto#512)
+
+**New features**
+
+- A ``cache_prefix`` setting was added for cache backends. (#680)
+
+
+3.1.1 (2016-04-05)
+------------------
+
+**Bug fixes**
+
+- Allow numeric comparison and sorting with the PostgreSQL backend. (#690)
+
+
 3.1.0 (2016-03-07)
 ------------------
 
@@ -549,7 +595,7 @@ Minor changes in the root URL (hello view):
 - Cliquet ``Service`` class now has the default error handler attached (#388)
 - Allow to configure info link in error responses with ``cliquet.error_info_link``
   setting (#395)
-- Storage backend now has a ``purge_deleted()`` to get rid of `tombstones <http://cliquet.readthedocs.org/en/latest/reference/glossary.html>`_ (#400)
+- Storage backend now has a ``purge_deleted()`` to get rid of `tombstones <http://cliquet.readthedocs.io/en/latest/reference/glossary.html>`_ (#400)
 
 **Bug fixes**
 
@@ -776,7 +822,7 @@ Minor
     $ cliquet --ini production.ini migrate
 
 - Sentry custom code was removed. Sentry logging is now managed through the
-  logging configuration, as explained `in docs <http://raven.readthedocs.org/en/latest/integrations/pyramid.html#logger-setup>`_.
+  logging configuration, as explained `in docs <http://raven.readthedocs.io/en/latest/integrations/pyramid.html#logger-setup>`_.
 
 **New features**
 
@@ -925,7 +971,7 @@ Minor
   (*Default: 50*) (#112)
 - Add `StatsD <https://github.com/etsy/statsd/>`_ support,
   enabled with ``cliquet.statsd_url = udp://server:port`` (#114)
-- Add `Sentry <http://sentry.readthedocs.org>`_ support,
+- Add `Sentry <http://sentry.readthedocs.io>`_ support,
   enabled with ``cliquet.sentry_url = http://user:pass@server/1`` (#110)
 
 **Bug fixes**
