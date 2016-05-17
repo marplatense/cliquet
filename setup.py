@@ -107,6 +107,7 @@ setup(name='cliquet',
       extras_require={
           'postgresql': POSTGRESQL_REQUIRES,
           'monitoring': MONITORING_REQUIRES,
+          'sqlalchemy': SQLALCHEMY_REQUIRES,
       },
       dependency_links=DEPENDENCY_LINKS,
       entry_points=ENTRY_POINTS)
