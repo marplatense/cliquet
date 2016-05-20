@@ -10,7 +10,7 @@ from cliquet.cache import (CacheBase, postgresql as postgresql_backend,
                            redis as redis_backend, memory as memory_backend,
                            heartbeat)
 
-from .support import unittest, skip_if_no_postgresql
+from .support import unittest, skip_if_no_postgresql, load_default_settings
 
 
 class CacheBaseTest(unittest.TestCase):
@@ -274,11 +274,7 @@ class RedisCacheTest(BaseTestCache, unittest.TestCase):
 @skip_if_no_postgresql
 class PostgreSQLCacheTest(BaseTestCache, unittest.TestCase):
     backend = postgresql_backend
-    settings = {
-        'cache_pool_size': 10,
-        'cache_url': 'postgres://postgres:postgres@localhost:5432/testdb',
-        'cache_prefix': ''
-    }
+    settings = load_default_settings('cache')
 
     def setUp(self):
         super(PostgreSQLCacheTest, self).setUp()

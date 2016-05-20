@@ -57,7 +57,7 @@ else:
     SQLALCHEMY_REQUIRES = [
         'SQLAlchemy',
         'psycopg2>2.5',
-        'pyramid_sqlalchemy,'
+        'pyramid_sqlalchemy',
         'zope.sqlalchemy',
         'colanderalchemy',
     ]
@@ -77,7 +77,6 @@ ENTRY_POINTS = {
         'cliquet = cliquet.scripts.cliquet:main'
     ]
 }
-
 
 setup(name='cliquet',
       version='3.2.0.dev0',

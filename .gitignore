@@ -9,3 +9,4 @@
 loadtests/.env.install
 cliquet_docs/_build/
 .idea/
+cliquet/tests/test.local.cfg

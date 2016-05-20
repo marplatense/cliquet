@@ -1,3 +1,4 @@
+import configparser
 import mock
 import os
 import threading
@@ -25,6 +26,18 @@ from cliquet.utils import sqlalchemy, follow_subrequest
 # This is the principal a connected user should have (in the tests).
 USER_PRINCIPAL = ('basicauth:9f2d363f98418b13253d6d7193fc88690302'
                   'ab0ae21295521f6029dffe9dc3b0')
+
+
+def load_default_settings(section):
+    global_cfg = 'tests/test.cfg'
+    local_cfg = 'tests/test.local.cfg'
+    config = configparser.ConfigParser()
+    if os.path.exists(global_cfg):
+        config.read_file(open(global_cfg))
+    config.read(local_cfg)
+    if not config.has_section(section):
+        raise Exception('Missing {} section in cfg file(s)'.format(section))
+    return dict(config.items(section))
 
 
 class DummyRequest(mock.MagicMock):

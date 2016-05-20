@@ -9,7 +9,7 @@ from cliquet.permission import (PermissionBase, redis as redis_backend,
                                 memory as memory_backend,
                                 postgresql as postgresql_backend, heartbeat)
 
-from .support import unittest, skip_if_no_postgresql, DummyRequest
+from .support import unittest, skip_if_no_postgresql, DummyRequest, load_default_settings
 
 
 class PermissionBaseTest(unittest.TestCase):
@@ -498,11 +498,7 @@ class RedisPermissionTest(BaseTestPermission, unittest.TestCase):
 @skip_if_no_postgresql
 class PostgreSQLPermissionTest(BaseTestPermission, unittest.TestCase):
     backend = postgresql_backend
-    settings = {
-        'permission_backend': 'cliquet.permission.postgresql',
-        'permission_pool_size': 10,
-        'permission_url': 'postgres://postgres:postgres@localhost:5432/testdb'
-    }
+    settings = load_default_settings('permission')
 
     def setUp(self):
         super(PostgreSQLPermissionTest, self).setUp()

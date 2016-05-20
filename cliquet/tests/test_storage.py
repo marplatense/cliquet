@@ -13,9 +13,8 @@ from cliquet.storage import (
     Sort, StorageBase, heartbeat
 )
 
-from .support import (unittest, ThreadMixin, DummyRequest,
+from .support import (unittest, ThreadMixin, DummyRequest, load_default_settings,
                       skip_if_travis, skip_if_no_postgresql)
-
 
 RECORD_ID = '472be9ec-26fe-461b-8282-9c4e4b207ab3'
 
@@ -1175,12 +1174,7 @@ class RedisStorageTest(MemoryStorageTest, unittest.TestCase):
 @skip_if_no_postgresql
 class PostgreSQLStorageTest(StorageTest, unittest.TestCase):
     backend = postgresql
-    settings = {
-        'storage_max_fetch_size': 10000,
-        'storage_backend': 'cliquet.storage.postgresql',
-        'storage_poolclass': 'sqlalchemy.pool.StaticPool',
-        'storage_url': 'postgres://postgres:postgres@localhost:5432/testdb',
-    }
+    settings = load_default_settings('storage')
 
     def setUp(self):
         super(PostgreSQLStorageTest, self).setUp()
